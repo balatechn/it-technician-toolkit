@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { Package, Plus, Search, Edit2, Trash2, Monitor, Laptop, Server, Printer, Network } from 'lucide-react'
+import { Package, Plus, Search, Edit2, Trash2, Monitor, Laptop, Server, Printer, Network, Download, Terminal, Wifi, WifiOff, Loader2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Card } from '@/components/ui/Card'
@@ -19,12 +20,13 @@ function AssetModal({ asset, onClose, onSave }: { asset: Partial<Asset> | null; 
   const [form, setForm] = useState({
     name: asset?.name || '', type: asset?.type || 'desktop', serial: asset?.serial || '',
     model: asset?.model || '', assignedTo: asset?.assignedTo || '', location: asset?.location || '',
-    status: asset?.status || 'active', os: asset?.os || '', notes: asset?.notes || '',
+    status: asset?.status || 'active', os: asset?.os || '', ipAddress: asset?.ipAddress || '',
+    macAddress: asset?.macAddress || '', notes: asset?.notes || '',
   })
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-terminal-card border border-terminal-border rounded-xl p-6 w-full max-w-lg">
+      <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-terminal-card border border-terminal-border rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <h2 className="text-lg font-bold font-mono text-white mb-4">{asset?.id ? 'EDIT ASSET' : 'ADD ASSET'}</h2>
         <div className="grid grid-cols-2 gap-3">
           {[
@@ -32,6 +34,8 @@ function AssetModal({ asset, onClose, onSave }: { asset: Partial<Asset> | null; 
             { key: 'serial', label: 'Serial Number', full: false },
             { key: 'model', label: 'Model', full: false },
             { key: 'assignedTo', label: 'Assigned To', full: false },
+            { key: 'ipAddress', label: 'IP Address', full: false, placeholder: '192.168.1.100' },
+            { key: 'macAddress', label: 'MAC Address', full: false, placeholder: 'AA:BB:CC:DD:EE:FF' },
             { key: 'location', label: 'Location', full: true },
             { key: 'os', label: 'Operating System', full: true },
             { key: 'notes', label: 'Notes', full: true },
@@ -39,7 +43,8 @@ function AssetModal({ asset, onClose, onSave }: { asset: Partial<Asset> | null; 
             <div key={f.key} className={f.full ? 'col-span-2' : ''}>
               <label className="block text-xs font-mono text-slate-400 mb-1">{f.label.toUpperCase()}</label>
               <input
-                className="input-field"
+                className="input-field font-mono"
+                placeholder={(f as any).placeholder || ''}
                 value={(form as any)[f.key]}
                 onChange={(e) => setForm((p) => ({ ...p, [f.key]: e.target.value }))}
               />
@@ -67,8 +72,37 @@ function AssetModal({ asset, onClose, onSave }: { asset: Partial<Asset> | null; 
   )
 }
 
+function PingButton({ ip }: { ip: string }) {
+  const [status, setStatus] = useState<'idle' | 'checking' | 'online' | 'offline'>('idle')
+  const [latency, setLatency] = useState<number | null>(null)
+
+  async function ping() {
+    setStatus('checking')
+    try {
+      const res = await fetch('/api/network/ping', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ip }) })
+      const data = await res.json()
+      setStatus(data.alive ? 'online' : 'offline')
+      setLatency(data.latency)
+    } catch { setStatus('offline') }
+  }
+
+  if (status === 'idle') return (
+    <button onClick={ping} className="flex items-center gap-1 text-[10px] font-mono text-slate-500 hover:text-terminal-cyan transition-colors" title="Check if online">
+      <Wifi className="w-3 h-3" /> PING
+    </button>
+  )
+  if (status === 'checking') return <Loader2 className="w-3 h-3 animate-spin text-slate-500" />
+  return (
+    <span className={`flex items-center gap-1 text-[10px] font-mono ${status === 'online' ? 'text-terminal-green' : 'text-terminal-red'}`}>
+      {status === 'online' ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+      {status === 'online' ? `${latency}ms` : 'offline'}
+    </span>
+  )
+}
+
 export default function AssetsPage() {
   const addToast = useToastStore((s) => s.addToast)
+  const router = useRouter()
   const [assets, setAssets] = useState<Asset[]>([])
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -164,6 +198,8 @@ export default function AssetsPage() {
                   { label: 'Assigned', value: asset.assignedTo },
                   { label: 'Location', value: asset.location },
                   { label: 'OS', value: asset.os },
+                  { label: 'IP', value: asset.ipAddress },
+                  { label: 'MAC', value: asset.macAddress },
                 ].map(f => f.value && (
                   <div key={f.label} className="flex justify-between text-xs font-mono">
                     <span className="text-slate-500">{f.label}:</span>
@@ -173,8 +209,29 @@ export default function AssetsPage() {
               </div>
 
               <div className="flex items-center justify-between pt-2 border-t border-terminal-border">
-                <span className="text-xs text-slate-600 font-mono">{formatDate(asset.createdAt)}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-600 font-mono">{formatDate(asset.createdAt)}</span>
+                  {asset.ipAddress && <PingButton ip={asset.ipAddress} />}
+                </div>
                 <div className="flex items-center gap-1">
+                  {asset.ipAddress && (
+                    <>
+                      <button
+                        onClick={() => router.push(`/network?ip=${asset.ipAddress}&name=${encodeURIComponent(asset.name)}`)}
+                        className="p-1.5 rounded text-slate-500 hover:text-terminal-green hover:bg-terminal-green/10 transition-all"
+                        title="Network Tools"
+                      >
+                        <Network className="w-3.5 h-3.5" />
+                      </button>
+                      <a
+                        href={`/api/network/rdp?ip=${asset.ipAddress}&name=${encodeURIComponent(asset.name)}`}
+                        className="p-1.5 rounded text-slate-500 hover:text-terminal-cyan hover:bg-terminal-cyan/10 transition-all"
+                        title="Download RDP file"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                      </a>
+                    </>
+                  )}
                   <button onClick={() => setModal({ open: true, asset })} className="p-1.5 rounded text-slate-500 hover:text-terminal-cyan hover:bg-terminal-cyan/10 transition-all">
                     <Edit2 className="w-3.5 h-3.5" />
                   </button>

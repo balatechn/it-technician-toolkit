@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard, Wrench, Activity, ScrollText, Package,
   Ticket, Settings, StickyNote, BotMessageSquare, ChevronLeft,
-  ChevronRight, Terminal, LogOut, Shield, X
+  ChevronRight, Terminal, LogOut, Shield, X, Network
 } from 'lucide-react'
 import { useSidebarStore, useAuthStore, useToastStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { href: '/monitoring', icon: Activity, label: 'Live Monitoring' },
   { href: '/logs', icon: ScrollText, label: 'Repair Logs' },
   { href: '/assets', icon: Package, label: 'Asset Tracker' },
+  { href: '/network', icon: Network, label: 'Network Tools' },
   { href: '/tickets', icon: Ticket, label: 'Tickets' },
   { href: '/notes', icon: StickyNote, label: 'Tech Notes' },
   { href: '/ai-assistant', icon: BotMessageSquare, label: 'AI Assistant' },

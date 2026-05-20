@@ -111,6 +111,8 @@ export interface Asset {
   location: string
   status: 'active' | 'maintenance' | 'retired' | 'storage'
   os?: string
+  ipAddress?: string
+  macAddress?: string
   lastSeen?: string
   notes?: string
   createdAt: string
