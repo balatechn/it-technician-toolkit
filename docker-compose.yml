@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  it-toolkit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: it-repair-toolkit
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - JWT_SECRET=ITRepairToolkit-Secret-Key-2024-ChangeInProduction-Min32Chars
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=Admin@2024!
+      - DATA_DIR=/app/data
+    volumes:
+      - toolkit-data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/auth/verify"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  toolkit-data:
+    driver: local
